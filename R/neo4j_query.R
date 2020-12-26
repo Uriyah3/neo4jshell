@@ -39,8 +39,35 @@ neo4j_query <- function(con = list(address = NULL, uid = NULL, pwd = NULL), qry 
   # split multiple queries into single queries inside a vector (command line cypher-shell only accepts one query at a time)
 
   if (grepl(";", qry)) {
-    qry <- strsplit(qry, ";")
-    qry <- as.vector(qry[[1]])
+    # Simple parser that doesn't accept nested quotation marks,
+    # sometimes a semicolon may part of a name or part of the data
+    # and the qry shouldn't be split along those semicolons.
+    parse_qry <- strsplit(qry, "")[[1]]
+
+    single_quotes <- FALSE
+    double_quotes <- FALSE
+    backtick <- FALSE
+    parsed_qry <- list()
+    i <- 1
+    parsed_qry[i] <- ''
+    for(character in parse_qry) {
+      if(character == "'") {
+        single_quotes <- !single_quotes
+      } else if(character == '"') {
+        double_quotes <- !double_quotes
+      } else if(character == '`') {
+        backtick <- !backtick
+      }
+
+      if(character == ';' && !backtick && !double_quotes && !single_quotes) {
+        i <- i + 1
+        parsed_qry[i] <- ''
+      } else {
+        parsed_qry[i] <- paste(parsed_qry[[i]], character, sep="")
+      }
+    }
+
+    qry <- as.vector(unlist(parsed_qry))
   } else {
     qry <- as.vector(qry)
   }
